@@ -10,6 +10,7 @@ class HotelPlan < ApplicationRecord
     agent = Mechanize.new
     page = agent.get(url)
 
+    new_plan_names = []
     #旅行プランのタイトルを取得
     page.search('.plan-list h3').each do |el|
       plan_name = el.at('h3').text
@@ -20,10 +21,17 @@ class HotelPlan < ApplicationRecord
         price =  row.at('.col3').text.squish
 
         record = self.find_or_initialize_by(plan_name: plan_name, room_name: room_name)
-        record.price = price.gsub(/[^\d]/, '').to_i
-        record.save!
+
+        if record.new_record?
+          record.price = price.gsub(/[^\d]/, '').to_i
+          record.save!
+          new_plan_names << record
+        else
+          logger.info "既存のレコードが見つかりました。"
+        end
       end
-      puts "=============="
+      # メール送信
+      HotelPlanMailer.notification(new_plan_names).deliver_now
     end
   end
 end
